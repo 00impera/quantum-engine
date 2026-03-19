@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUANTUM ENGINE — NFT Protocol</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0612;
+    --grid: rgba(138,75,255,0.05);
+    --c0: #ffffff; --c0g: #c4b5fd;
+    --c1: #a855f7; --c1g: #7c3aed;
+    --c2: #818cf8; --c2g: #4f46e5;
+    --c3: #34d399; --c3g: #059669;
+    --c4: #fb923c; --c4g: #ea580c;
+    --c5: #f472b6; --c5g: #db2777;
+    --c6: #67e8f9; --c6g: #0891b2;
+    --c7: #fbbf24; --c7g: #d97706;
+    --accent: #8b5cf6;
+    --text: #ede9fe;
+    --dim: rgba(167,139,250,0.5);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID BACKGROUND */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* SCAN LINE */
+  body::after {
+    content:'';
+    position:fixed; inset:0;
+    background: linear-gradient(transparent 50%, rgba(0,0,0,0.03) 50%);
+    background-size: 100% 4px;
+    pointer-events:none;
+    z-index:1;
+    animation: scan 8s linear infinite;
+  }
+  @keyframes scan {
+    0%{background-position:0 0}
+    100%{background-position:0 100vh}
+  }
+
+  .container { max-width:1100px; margin:0 auto; padding:0 24px; position:relative; z-index:2; }
+
+  /* HEADER */
+  header {
+    padding: 32px 0 24px;
+    border-bottom: 1px solid rgba(139,92,246,0.15);
+    margin-bottom: 40px;
+  }
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(28px,5vw,52px);
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-shadow: 0 0 30px var(--accent), 0 0 60px rgba(139,92,246,0.3);
+    animation: flicker 6s ease-in-out infinite;
+  }
+  @keyframes flicker {
+    0%,95%,100%{opacity:1}
+    96%{opacity:0.85}
+    97%{opacity:1}
+    98%{opacity:0.9}
+  }
+  .logo span { color: rgba(139,92,246,0.4); font-weight:400; }
+  .subtitle {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+  .contract-badge {
+    display:inline-block;
+    margin-top:12px;
+    padding:4px 12px;
+    border:1px solid rgba(139,92,246,0.2);
+    font-size:10px;
+    letter-spacing:0.1em;
+    color: var(--dim);
+  }
+  .contract-badge a { color:var(--accent); text-decoration:none; }
+
+  /* WALLET BAR */
+  .wallet-bar {
+    display:flex; align-items:center; gap:16px;
+    padding:16px 0;
+    border-bottom:1px solid rgba(139,92,246,0.08);
+    margin-bottom:40px;
+    flex-wrap:wrap;
+  }
+  .wallet-status {
+    font-size:11px;
+    letter-spacing:0.15em;
+    color:var(--dim);
+  }
+  .wallet-status.connected { color:#a855f7; }
+  .wallet-addr {
+    font-size:11px;
+    color:var(--accent);
+    letter-spacing:0.05em;
+  }
+
+  /* BUTTONS */
+  .btn {
+    font-family:'Share Tech Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    padding:10px 24px;
+    border:1px solid var(--accent);
+    background:transparent;
+    color:var(--accent);
+    cursor:pointer;
+    transition:all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  }
+  .btn:hover {
+    background:var(--accent);
+    color:#0a0612;
+    box-shadow:0 0 20px rgba(139,92,246,0.4);
+  }
+  .btn:disabled { opacity:0.3; cursor:not-allowed; }
+  .btn.danger { border-color:#ff2288; color:#ff2288; }
+  .btn.danger:hover { background:#ff2288; color:#0a0612; box-shadow:0 0 20px rgba(244,114,182,0.4); }
+  .btn.sm { padding:6px 14px; font-size:10px; }
+
+  /* PANELS */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-bottom:24px; }
+  @media(max-width:700px){ .grid-2,.grid-3{grid-template-columns:1fr;} }
+
+  .panel {
+    border:1px solid rgba(139,92,246,0.12);
+    padding:24px;
+    background:rgba(139,92,246,0.02);
+    position:relative;
+  }
+  .panel::before {
+    content:'';
+    position:absolute;
+    top:0; left:0; right:0;
+    height:1px;
+    background:linear-gradient(90deg,transparent,#8b5cf6,transparent);
+    opacity:0.4;
+  }
+  .panel-title {
+    font-family:'Orbitron',sans-serif;
+    font-size:10px;
+    letter-spacing:0.3em;
+    color:var(--dim);
+    text-transform:uppercase;
+    margin-bottom:20px;
+  }
+
+  /* STATS */
+  .stat-val {
+    font-family:'Orbitron',sans-serif;
+    font-size:clamp(24px,4vw,40px);
+    font-weight:700;
+    color:var(--accent);
+    text-shadow:0 0 20px rgba(139,92,246,0.3);
+  }
+  .stat-label { font-size:10px; letter-spacing:0.2em; color:var(--dim); margin-top:4px; }
+
+  /* INPUTS */
+  input, select {
+    width:100%;
+    background:rgba(139,92,246,0.04);
+    border:1px solid rgba(139,92,246,0.15);
+    color:var(--text);
+    font-family:'Share Tech Mono',monospace;
+    font-size:13px;
+    padding:10px 14px;
+    margin-bottom:12px;
+    outline:none;
+    transition:border-color 0.2s;
+  }
+  input:focus, select:focus { border-color:var(--accent); }
+  select option { background:#13082a; }
+  label { font-size:10px; letter-spacing:0.2em; color:var(--dim); display:block; margin-bottom:6px; }
+
+  /* STATE SELECTOR */
+  .states {
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .state-btn {
+    padding:8px 4px;
+    border:1px solid;
+    background:transparent;
+    cursor:pointer;
+    font-family:'Share Tech Mono',monospace;
+    font-size:9px;
+    letter-spacing:0.1em;
+    text-align:center;
+    transition:all 0.2s;
+  }
+  .state-btn:hover, .state-btn.active { opacity:1 !important; }
+
+  /* NFT PREVIEW */
+  .nft-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+    gap:12px;
+    margin-top:16px;
+    max-height:400px;
+    overflow-y:auto;
+  }
+  .nft-card {
+    border:1px solid rgba(139,92,246,0.1);
+    padding:8px;
+    cursor:pointer;
+    transition:all 0.2s;
+    background:rgba(0,0,10,0.6);
+  }
+  .nft-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .nft-card svg { width:100%; height:auto; display:block; }
+  .nft-id { font-size:9px; letter-spacing:0.1em; color:var(--dim); margin-top:6px; text-align:center; }
+  .nft-state { font-size:8px; text-align:center; margin-top:2px; }
+
+  /* LOG */
+  .log {
+    background:rgba(0,0,0,0.4);
+    border:1px solid rgba(139,92,246,0.08);
+    padding:16px;
+    height:160px;
+    overflow-y:auto;
+    font-size:11px;
+    line-height:1.8;
+  }
+  .log-entry { color:var(--dim); }
+  .log-entry.ok { color:#a855f7; }
+  .log-entry.err { color:#f472b6; }
+  .log-entry.info { color:var(--accent); }
+
+  /* QUANTUM VISUAL */
+  .quantum-vis {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px 0;
+  }
+  .qsvg { width:160px; height:160px; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { margin:12px 0; }
+  .progress-bar {
+    height:4px;
+    background:rgba(139,92,246,0.1);
+    position:relative;
+    overflow:hidden;
+  }
+  .progress-fill {
+    height:100%;
+    background:linear-gradient(90deg,#8b5cf6,#a855f7);
+    box-shadow:0 0 8px rgba(139,92,246,0.6);
+    transition:width 0.5s;
+  }
+  .progress-text { font-size:10px; color:var(--dim); margin-top:4px; letter-spacing:0.1em; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family:'Orbitron',sans-serif;
+    font-size:13px;
+    letter-spacing:0.25em;
+    color:var(--accent);
+    text-transform:uppercase;
+    margin-bottom:20px;
+    padding-bottom:8px;
+    border-bottom:1px solid rgba(139,92,246,0.1);
+  }
+
+  .mt { margin-top:16px; }
+  .row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:120px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(139,92,246,0.2); }
+
+  .tag {
+    display:inline-block;
+    padding:2px 8px;
+    font-size:9px;
+    letter-spacing:0.15em;
+    border:1px solid;
+    text-transform:uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">QUANTUM<span>/</span>ENGINE</div>
+    <div class="subtitle">On-Chain SVG NFT Protocol · Monad · LayerZero</div>
+    <div class="contract-badge">
+      CONTRACT:
+      <a href="https://explorer.monad.xyz/address/0x8b39AF593EcC183cdd30E660e5aE2141499E4C4B" target="_blank">
+        0x8b39AF593EcC183cdd30E660e5aE2141499E4C4B
+      </a>
+    </div>
+  </header>
+
+  <!-- WALLET BAR -->
+  <div class="wallet-bar">
+    <div>
+      <div class="wallet-status" id="walletStatus">● NOT CONNECTED</div>
+      <div class="wallet-addr" id="walletAddr"></div>
+    </div>
+    <button class="btn" id="connectBtn" onclick="connectWallet()">CONNECT WALLET</button>
+    <div style="margin-left:auto;font-size:10px;color:var(--dim);">
+      CHAIN: <span style="color:var(--accent)" id="chainInfo">—</span>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="grid-3">
+    <div class="panel">
+      <div class="panel-title">// Total Minted</div>
+      <div class="stat-val" id="statMinted">—</div>
+      <div class="stat-label">OF 10,000 MAX SUPPLY</div>
+      <div class="progress-wrap mt">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div class="progress-text" id="progressText">LOADING...</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">// Mint Fee</div>
+      <div class="stat-val">0.005</div>
+      <div class="stat-label">MON PER TOKEN</div>
+      <div class="mt" style="font-size:10px;color:var(--dim)">
+        SHIFT FEE: <span style="color:var(--accent)">0.001 MON</span><br>
+        BRIDGE FEE: <span style="color:var(--accent)">0.002 MON</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">// Quantum States</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px;">
+        <div class="tag" style="border-color:#c4b5fd;color:#c4b5fd;font-size:7px">SUPER</div>
+        <div class="tag" style="border-color:#a855f7;color:#a855f7;font-size:7px">ENTANGL</div>
+        <div class="tag" style="border-color:#818cf8;color:#818cf8;font-size:7px">COLLAPS</div>
+        <div class="tag" style="border-color:#a855f7;color:#a855f7;font-size:7px">DECOHER</div>
+        <div class="tag" style="border-color:#fb923c;color:#fb923c;font-size:7px">TUNNEL</div>
+        <div class="tag" style="border-color:#f472b6;color:#f472b6;font-size:7px">INTERF</div>
+        <div class="tag" style="border-color:#67e8f9;color:#67e8f9;font-size:7px">SPIN_UP</div>
+        <div class="tag" style="border-color:#fbbf24;color:#fbbf24;font-size:7px">VOID</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MINT + PREVIEW -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">// Mint NFT</div>
+
+      <label>QUANTITY (1–10)</label>
+      <input type="number" id="mintQty" value="1" min="1" max="10">
+
+      <div style="font-size:10px;color:var(--dim);margin-bottom:16px;">
+        TOTAL COST: <span style="color:var(--accent)" id="mintCost">0.005 MON</span>
+      </div>
+
+      <div class="row">
+        <button class="btn" onclick="mintNFT()">MINT</button>
+        <button class="btn" onclick="mintBatch()">MINT BATCH</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// Live Preview</div>
+      <div class="quantum-vis">
+        <svg class="qsvg" id="previewSvg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="pbg" cx="50%" cy="50%" r="70%">
+              <stop offset="0%" stop-color="#0d0520"/>
+              <stop offset="100%" stop-color="#000008"/>
+            </radialGradient>
+            <radialGradient id="pc" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#818cf8" id="ps1"/>
+              <stop offset="60%" stop-color="#4f46e5" stop-opacity=".8" id="ps2"/>
+              <stop offset="100%" stop-color="#312e81" stop-opacity="0" id="ps3"/>
+            </radialGradient>
+            <filter id="pg"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <rect width="400" height="400" fill="url(#pbg)"/>
+          <circle cx="200" cy="200" r="160" fill="none" stroke="#312e81" stroke-width="1" stroke-opacity=".3"/>
+          <g filter="url(#pg)">
+            <line x1="200" y1="200" x2="200" y2="50" stroke="#818cf8" stroke-width="2" stroke-opacity=".7" id="pl1"/>
+            <line x1="200" y1="200" x2="200" y2="350" stroke="#818cf8" stroke-width="2" stroke-opacity=".7" id="pl2"/>
+            <line x1="200" y1="200" x2="63" y2="125" stroke="#4f46e5" stroke-width="1.5" stroke-opacity=".6" id="pl3"/>
+            <line x1="200" y1="200" x2="337" y2="275" stroke="#4f46e5" stroke-width="1.5" stroke-opacity=".6" id="pl4"/>
+            <line x1="200" y1="200" x2="63" y2="275" stroke="#4f46e5" stroke-width="1.5" stroke-opacity=".6" id="pl5"/>
+            <line x1="200" y1="200" x2="337" y2="125" stroke="#4f46e5" stroke-width="1.5" stroke-opacity=".6" id="pl6"/>
+          </g>
+          <g fill="#c7d2fe" opacity=".9" id="pnodes">
+            <circle cx="200" cy="55" r="6"/>
+            <circle cx="200" cy="345" r="6"/>
+            <circle cx="68" cy="128" r="5"/>
+            <circle cx="332" cy="272" r="5"/>
+            <circle cx="68" cy="272" r="5"/>
+            <circle cx="332" cy="128" r="5"/>
+          </g>
+          <circle cx="200" cy="200" r="70" fill="url(#pc)" filter="url(#pg)"/>
+          <circle cx="200" cy="200" r="40" fill="#818cf8" fill-opacity=".9" filter="url(#pg)" id="pcore"/>
+          <circle cx="200" cy="200" r="20" fill="white" fill-opacity=".95"/>
+          <text x="200" y="370" font-family="monospace" font-size="11" fill="#4f46e5" text-anchor="middle" opacity=".8" id="ptext">QE #? | COLLAPSE</text>
+          <text x="200" y="385" font-family="monospace" font-size="9" fill="#312e81" text-anchor="middle" opacity=".5">SHIFTS: 0</text>
+        </svg>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:10px;letter-spacing:0.2em;color:var(--dim)">STATE PREVIEW</div>
+        <div class="states" style="margin-top:12px">
+          <button class="state-btn" style="border-color:#c4b5fd;color:#c4b5fd" onclick="previewState(0)">SUPER</button>
+          <button class="state-btn" style="border-color:#a855f7;color:#a855f7" onclick="previewState(1)">ENTANGL</button>
+          <button class="state-btn" style="border-color:#818cf8;color:#818cf8" onclick="previewState(2)">COLLAPS</button>
+          <button class="state-btn" style="border-color:#a855f7;color:#00ff88" onclick="previewState(3)">DECOHER</button>
+          <button class="state-btn" style="border-color:#fb923c;color:#fb923c" onclick="previewState(4)">TUNNEL</button>
+          <button class="state-btn" style="border-color:#f472b6;color:#f472b6" onclick="previewState(5)">INTERF</button>
+          <button class="state-btn" style="border-color:#67e8f9;color:#67e8f9" onclick="previewState(6)">SPIN_UP</button>
+          <button class="state-btn" style="border-color:#fbbf24;color:#fbbf24" onclick="previewState(7)">VOID</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHIFT STATE + BRIDGE -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">// Shift Quantum State</div>
+      <label>TOKEN ID</label>
+      <input type="number" id="shiftId" placeholder="e.g. 0" min="0">
+      <label>NEW STATE</label>
+      <select id="shiftState">
+        <option value="0">0 — SUPERPOSITION</option>
+        <option value="1">1 — ENTANGLED</option>
+        <option value="2">2 — COLLAPSE</option>
+        <option value="3">3 — DECOHERENCE</option>
+        <option value="4">4 — TUNNELING</option>
+        <option value="5">5 — INTERFERENCE</option>
+        <option value="6">6 — SPIN_UP</option>
+        <option value="7">7 — VOID</option>
+      </select>
+      <div class="row mt">
+        <button class="btn" onclick="shiftState()">SHIFT STATE — 0.001 MON</button>
+        <button class="btn" onclick="collapseRandom()">RANDOM COLLAPSE</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// Bridge Cross-Chain</div>
+      <label>TOKEN ID</label>
+      <input type="number" id="bridgeId" placeholder="e.g. 0" min="0">
+      <label>DESTINATION CHAIN</label>
+      <select id="bridgeDst">
+        <option value="30109">Polygon (EID 30109)</option>
+        <option value="30101">Ethereum (EID 30101)</option>
+        <option value="30184">Base (EID 30184)</option>
+        <option value="30110">Arbitrum (EID 30110)</option>
+        <option value="30102">BNB Chain (EID 30102)</option>
+      </select>
+      <label>RECIPIENT ADDRESS</label>
+      <input type="text" id="bridgeTo" placeholder="0x...">
+      <button class="btn mt" onclick="bridgeNFT()">BRIDGE — 0.002 MON + LZ FEE</button>
+    </div>
+  </div>
+
+  <!-- MY NFTS -->
+  <div class="panel" style="margin-bottom:24px">
+    <div class="panel-title">// My NFTs</div>
+    <div class="row" style="margin-bottom:16px">
+      <button class="btn sm" onclick="loadMyNFTs()">LOAD MY NFTS</button>
+      <div style="font-size:10px;color:var(--dim);padding-bottom:4px">
+        SHOWING ON-CHAIN SVG RENDERS
+      </div>
+    </div>
+    <div class="nft-grid" id="nftGrid">
+      <div style="color:var(--dim);font-size:11px;grid-column:1/-1;padding:20px 0">
+        Connect wallet and click LOAD MY NFTS
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div class="panel" style="margin-bottom:40px">
+    <div class="panel-title">// Transaction Log</div>
+    <div class="log" id="txLog">
+      <div class="log-entry info">▶ QUANTUM ENGINE INTERFACE INITIALIZED</div>
+      <div class="log-entry">▶ CONTRACT: 0x8b39AF593EcC183cdd30E660e5aE2141499E4C4B</div>
+      <div class="log-entry">▶ NETWORK: MONAD MAINNET (CHAIN ID 143)</div>
+      <div class="log-entry">▶ CONNECT WALLET TO BEGIN</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CONTRACT = '0x8b39AF593EcC183cdd30E660e5aE2141499E4C4B';
+const MONAD_CHAIN_ID = 143;
+const MONAD_RPC = 'https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk';
+
+const ABI = [
+  "function totalMinted() view returns (uint256)",
+  "function MAX_SUPPLY() view returns (uint256)",
+  "function mint() payable returns (uint256)",
+  "function mintBatch(uint256 n) payable",
+  "function shiftState(uint256 id, uint8 ns) payable",
+  "function collapseRandom(uint256 id) payable",
+  "function bridgeNFT(uint32 dst, uint256 id, address to, bytes opts) payable",
+  "function quantumState(uint256) view returns (uint8)",
+  "function shiftCount(uint256) view returns (uint256)",
+  "function tokenURI(uint256) view returns (string)",
+  "function balanceOf(address) view returns (uint256)",
+  "function tokenOfOwnerByIndex(address, uint256) view returns (uint256)",
+  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+];
+
+const COLORS = [
+  ['#c4b5fd','#8b5cf6','#5b21b6','#ddd6fe','#0d0520'],
+  ['#a855f7','#7c3aed','#4c1d95','#d8b4fe','#0f0325'],
+  ['#818cf8','#4f46e5','#312e81','#c7d2fe','#060620'],
+  ['#34d399','#059669','#064e3b','#6ee7b7','#011a14'],
+  ['#fb923c','#ea580c','#7c2d12','#fed7aa','#1c0a02'],
+  ['#f472b6','#db2777','#831843','#fbcfe8','#1f0514'],
+  ['#67e8f9','#0891b2','#164e63','#a5f3fc','#031820'],
+  ['#fbbf24','#d97706','#78350f','#fde68a','#1c1002'],
+];
+const STATES = ['SUPERPOSITION','ENTANGLED','COLLAPSE','DECOHERENCE','TUNNELING','INTERFERENCE','SPIN_UP','VOID'];
+
+let provider, signer, contract, userAddr;
+
+function log(msg, type='') {
+  const el = document.getElementById('txLog');
+  const div = document.createElement('div');
+  div.className = 'log-entry ' + type;
+  div.textContent = '▶ ' + msg;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function connectWallet() {
+  if (!window.ethereum) { log('No wallet detected. Install MetaMask.','err'); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send('eth_requestAccounts',[]);
+    signer = await provider.getSigner();
+    userAddr = await signer.getAddress();
+
+    const network = await provider.getNetwork();
+    document.getElementById('chainInfo').textContent = `${network.name.toUpperCase()} (${network.chainId})`;
+
+    if (Number(network.chainId) !== MONAD_CHAIN_ID) {
+      log('Wrong network! Switch to Monad Mainnet (Chain ID 143)','err');
+      try {
+        await window.ethereum.request({
+          method:'wallet_addEthereumChain',
+          params:[{
+            chainId:'0x8F',
+            chainName:'Monad Mainnet',
+            rpcUrls:['https://rpc.monad.xyz'],
+            nativeCurrency:{name:'MON',symbol:'MON',decimals:18},
+            blockExplorerUrls:['https://explorer.monad.xyz']
+          }]
+        });
+      } catch(e){}
+      return;
+    }
+
+    contract = new ethers.Contract(CONTRACT, ABI, signer);
+
+    document.getElementById('walletStatus').textContent = '● CONNECTED';
+    document.getElementById('walletStatus').className = 'wallet-status connected';
+    document.getElementById('walletAddr').textContent = userAddr.slice(0,6)+'...'+userAddr.slice(-4);
+    document.getElementById('connectBtn').textContent = 'CONNECTED';
+    document.getElementById('connectBtn').disabled = true;
+
+    log(`Wallet connected: ${userAddr}`, 'ok');
+    await loadStats();
+  } catch(e) {
+    log('Connection failed: ' + e.message, 'err');
+  }
+}
+
+async function rpcCall(data) {
+  const res = await fetch(MONAD_RPC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc:'2.0', id:1, method:'eth_call', params:[{ to:CONTRACT, data }, 'latest'] })
+  });
+  const json = await res.json();
+  return json.result;
+}
+
+async function loadStats() {
+  try {
+    // totalMinted() = keccak256("totalMinted()")[0:4] = 0x05b5d230
+    const result = await rpcCall('0x05b5d230');
+    const n = parseInt(result, 16) || 0;
+    document.getElementById('statMinted').textContent = n.toLocaleString();
+    const pct = (n / 10000 * 100).toFixed(1);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressText').textContent = `${pct}% MINTED — ${10000-n} REMAINING`;
+    log(`Stats loaded: ${n}/10000 minted`);
+  } catch(e) {
+    log('Stats load failed: ' + e.message, 'err');
+  }
+}
+
+// Update mint cost
+document.getElementById('mintQty').addEventListener('input', function() {
+  const n = Math.max(1, Math.min(10, parseInt(this.value)||1));
+  document.getElementById('mintCost').textContent = (n * 0.005).toFixed(3) + ' MON';
+});
+
+async function mintNFT() {
+  if (!contract) { log('Connect wallet first','err'); return; }
+  try {
+    log('Minting 1 NFT...');
+    const tx = await contract.mint({ value: ethers.parseEther('0.005') });
+    log('TX sent: ' + tx.hash);
+    const receipt = await tx.wait();
+    log('MINT SUCCESS! Block: ' + receipt.blockNumber, 'ok');
+    await loadStats();
+  } catch(e) {
+    log('Mint failed: ' + (e.reason || e.message), 'err');
+  }
+}
+
+async function mintBatch() {
+  if (!contract) { log('Connect wallet first','err'); return; }
+  const n = parseInt(document.getElementById('mintQty').value) || 1;
+  try {
+    log(`Minting batch of ${n}...`);
+    const cost = ethers.parseEther((n * 0.005).toString());
+    const tx = await contract.mintBatch(n, { value: cost });
+    log('TX sent: ' + tx.hash);
+    const receipt = await tx.wait();
+    log(`BATCH MINT SUCCESS! ${n} NFTs minted. Block: ${receipt.blockNumber}`, 'ok');
+    await loadStats();
+  } catch(e) {
+    log('Batch mint failed: ' + (e.reason || e.message), 'err');
+  }
+}
+
+async function shiftState() {
+  if (!contract) { log('Connect wallet first','err'); return; }
+  const id = document.getElementById('shiftId').value;
+  const ns = document.getElementById('shiftState').value;
+  if (id === '') { log('Enter token ID','err'); return; }
+  try {
+    log(`Shifting token #${id} to state ${ns} (${STATES[ns]})...`);
+    const tx = await contract.shiftState(id, ns, { value: ethers.parseEther('0.001') });
+    log('TX sent: ' + tx.hash);
+    const receipt = await tx.wait();
+    log(`STATE SHIFTED! Token #${id} → ${STATES[ns]}`, 'ok');
+  } catch(e) {
+    log('Shift failed: ' + (e.reason || e.message), 'err');
+  }
+}
+
+async function collapseRandom() {
+  if (!contract) { log('Connect wallet first','err'); return; }
+  const id = document.getElementById('shiftId').value;
+  if (id === '') { log('Enter token ID','err'); return; }
+  try {
+    log(`Random collapse on token #${id}...`);
+    const tx = await contract.collapseRandom(id, { value: ethers.parseEther('0.001') });
+    log('TX sent: ' + tx.hash);
+    const receipt = await tx.wait();
+    log(`COLLAPSE SUCCESS! Token #${id} random state assigned`, 'ok');
+  } catch(e) {
+    log('Collapse failed: ' + (e.reason || e.message), 'err');
+  }
+}
+
+async function bridgeNFT() {
+  if (!contract) { log('Connect wallet first','err'); return; }
+  const id = document.getElementById('bridgeId').value;
+  const dst = document.getElementById('bridgeDst').value;
+  const to = document.getElementById('bridgeTo').value;
+  if (!id || !to) { log('Fill all bridge fields','err'); return; }
+  const opts = '0x00030100110100000000000000000000000000030d40';
+  try {
+    log(`Bridging token #${id} to chain EID ${dst}...`);
+    const tx = await contract.bridgeNFT(dst, id, to, opts, { value: ethers.parseEther('0.05') });
+    log('TX sent: ' + tx.hash);
+    const receipt = await tx.wait();
+    log(`BRIDGE SUCCESS! Token #${id} sent cross-chain`, 'ok');
+  } catch(e) {
+    log('Bridge failed: ' + (e.reason || e.message), 'err');
+  }
+}
+
+async function loadMyNFTs() {
+  if (!userAddr) { log('Connect wallet first','err'); return; }
+  log('Loading your NFTs...');
+  const grid = document.getElementById('nftGrid');
+  grid.innerHTML = '<div style="color:var(--dim);font-size:11px;grid-column:1/-1">Loading...</div>';
+
+  try {
+    const readContract = new ethers.Contract(CONTRACT, ABI, provider);
+    const bal = await readContract.balanceOf(userAddr);
+    const n = Math.min(Number(bal), 20);
+    if (n === 0) {
+      grid.innerHTML = '<div style="color:var(--dim);font-size:11px;grid-column:1/-1">No NFTs found</div>';
+      log('No NFTs in this wallet','err');
+      return;
+    }
+
+    grid.innerHTML = '';
+    log(`Found ${Number(bal)} NFTs, showing first ${n}`, 'ok');
+
+    for (let i = 0; i < n; i++) {
+      try {
+        const tokenId = await readContract.tokenOfOwnerByIndex(userAddr, i);
+        const state = await readContract.quantumState(tokenId);
+        const shifts = await readContract.shiftCount(tokenId);
+        const s = Number(state);
+        const c = COLORS[s];
+        const card = document.createElement('div');
+        card.className = 'nft-card';
+        card.innerHTML = `
+          ${buildSVG(Number(tokenId), s, Number(shifts), c)}
+          <div class="nft-id">#${tokenId}</div>
+          <div class="nft-state" style="color:${c[0]}">${STATES[s]}</div>
+        `;
+        card.onclick = () => {
+          document.getElementById('shiftId').value = tokenId;
+          document.getElementById('bridgeId').value = tokenId;
+          log(`Selected token #${tokenId} (${STATES[s]})`);
+        };
+        grid.appendChild(card);
+      } catch(e) {}
+    }
+  } catch(e) {
+    log('Load failed: ' + e.message, 'err');
+    grid.innerHTML = '<div style="color:#ff2288;font-size:11px;grid-column:1/-1">Failed to load NFTs</div>';
+  }
+}
+
+function buildSVG(id, state, shifts, c) {
+  return `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg${id}" cx="50%" cy="50%" r="70%">
+        <stop offset="0%" stop-color="${c[4]}"/>
+        <stop offset="100%" stop-color="#000008"/>
+      </radialGradient>
+      <radialGradient id="cr${id}" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${c[0]}"/>
+        <stop offset="60%" stop-color="${c[1]}" stop-opacity=".8"/>
+        <stop offset="100%" stop-color="${c[2]}" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="gf${id}"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <rect width="400" height="400" fill="url(#bg${id})"/>
+    <circle cx="200" cy="200" r="160" fill="none" stroke="${c[2]}" stroke-width="1" stroke-opacity=".3"/>
+    <g filter="url(#gf${id})">
+      <line x1="200" y1="200" x2="200" y2="50" stroke="${c[0]}" stroke-width="2" stroke-opacity=".7"/>
+      <line x1="200" y1="200" x2="200" y2="350" stroke="${c[0]}" stroke-width="2" stroke-opacity=".7"/>
+      <line x1="200" y1="200" x2="63" y2="125" stroke="${c[1]}" stroke-width="1.5" stroke-opacity=".6"/>
+      <line x1="200" y1="200" x2="337" y2="275" stroke="${c[1]}" stroke-width="1.5" stroke-opacity=".6"/>
+      <line x1="200" y1="200" x2="63" y2="275" stroke="${c[1]}" stroke-width="1.5" stroke-opacity=".6"/>
+      <line x1="200" y1="200" x2="337" y2="125" stroke="${c[1]}" stroke-width="1.5" stroke-opacity=".6"/>
+    </g>
+    <g fill="${c[3]}" opacity=".9">
+      <circle cx="200" cy="55" r="6"/><circle cx="200" cy="345" r="6"/>
+      <circle cx="68" cy="128" r="5"/><circle cx="332" cy="272" r="5"/>
+      <circle cx="68" cy="272" r="5"/><circle cx="332" cy="128" r="5"/>
+    </g>
+    <circle cx="200" cy="200" r="70" fill="url(#cr${id})" filter="url(#gf${id})"/>
+    <circle cx="200" cy="200" r="40" fill="${c[0]}" fill-opacity=".9" filter="url(#gf${id})"/>
+    <circle cx="200" cy="200" r="20" fill="white" fill-opacity=".95"/>
+    <text x="200" y="370" font-family="monospace" font-size="11" fill="${c[1]}" text-anchor="middle" opacity=".8">QE #${id} | ${STATES[state]}</text>
+    <text x="200" y="385" font-family="monospace" font-size="9" fill="${c[2]}" text-anchor="middle" opacity=".5">SHIFTS: ${shifts}</text>
+  </svg>`;
+}
+
+function previewState(s) {
+  const c = COLORS[s];
+  // Update gradient stops
+  document.getElementById('ps1').setAttribute('stop-color', c[0]);
+  document.getElementById('ps2').setAttribute('stop-color', c[1]);
+  document.getElementById('ps3').setAttribute('stop-color', c[2]);
+  document.getElementById('pcore').setAttribute('fill', c[0]);
+  document.getElementById('pl1').setAttribute('stroke', c[0]);
+  document.getElementById('pl2').setAttribute('stroke', c[0]);
+  document.getElementById('pl3').setAttribute('stroke', c[1]);
+  document.getElementById('pl4').setAttribute('stroke', c[1]);
+  document.getElementById('pl5').setAttribute('stroke', c[1]);
+  document.getElementById('pl6').setAttribute('stroke', c[1]);
+  document.getElementById('pnodes').setAttribute('fill', c[3]);
+  document.getElementById('ptext').setAttribute('fill', c[1]);
+  document.getElementById('ptext').textContent = `QE #? | ${STATES[s]}`;
+}
+
+// Load stats on page load
+window.addEventListener('load', () => {
+  loadStats();
+  previewState(2);
+});
+</script>
+</body>
+</html>
